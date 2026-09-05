@@ -37,6 +37,15 @@ def _build_job_config(*, write_disposition, partition_field=None):
             type_=bigquery.TimePartitioningType.DAY,
             field=partition_field,
         )
+        # Backfills write through a partition decorator (table$YYYYMMDD). The
+        # destination table may already exist with an older/incomplete schema
+        # from previous exercises. Allow nullable columns present in the Parquet
+        # schema (for example users.address_id) to be added to the parent table
+        # while loading the partition instead of failing the whole backfill.
+        config.schema_update_options = [
+            bigquery.SchemaUpdateOption.ALLOW_FIELD_ADDITION,
+            bigquery.SchemaUpdateOption.ALLOW_FIELD_RELAXATION,
+        ]
     return config
 
 
