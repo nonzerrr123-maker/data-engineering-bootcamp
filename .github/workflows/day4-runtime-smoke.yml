@@ -1,0 +1,56 @@
+name: Day 4 Runtime Smoke
+
+on:
+  push:
+    branches:
+      - fix/day4-airflow-spark-runtime
+  workflow_dispatch:
+
+jobs:
+  airflow-image-and-dags:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Day 4 Airflow image
+        run: |
+          docker build \
+            -f 00-bootcamp-project/docker/Dockerfile-airflow \
+            -t day4-airflow:ci \
+            00-bootcamp-project/docker
+
+      - name: Verify PySpark and Spark provider
+        run: |
+          docker run --rm day4-airflow:ci \
+            python -c "import pyspark; print('PySpark', pyspark.__version__); assert pyspark.__version__ == '4.1.0'"
+          docker run --rm day4-airflow:ci \
+            python -c "from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator; print('Spark provider OK')"
+
+      - name: Parse all Day 4 DAGs
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/00-bootcamp-project/dags:/opt/airflow/dags:ro" \
+            -e AIRFLOW__CORE__LOAD_EXAMPLES=false \
+            day4-airflow:ci \
+            python -c "from airflow.models import DagBag; b=DagBag(dag_folder='/opt/airflow/dags'); print('DAGs:', sorted(b.dags)); print('Import errors:', b.import_errors); assert not b.import_errors; expected={'greenery_addresses_data_pipeline','greenery_order_items_data_pipeline','greenery_products_data_pipeline','greenery_promos_data_pipeline','greenery_events_data_pipeline','greenery_orders_data_pipeline','greenery_users_data_pipeline'}; assert expected.issubset(set(b.dags))"
+
+  spark-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Day 4 Spark image
+        run: |
+          docker build \
+            -f 00-bootcamp-project/docker/Dockerfile-spark \
+            -t day4-spark:ci \
+            00-bootcamp-project/docker
+
+      - name: Verify spark-submit
+        run: |
+          docker run --rm \
+            --entrypoint /opt/spark/bin/spark-submit \
+            day4-spark:ci \
+            --version
