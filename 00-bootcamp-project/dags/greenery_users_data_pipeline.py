@@ -35,9 +35,10 @@ def _extract_data(ds):
             ]
             writer.writerow(header)
             for each in data:
+                address_id = each.get("address_id", each.get("address"))
                 writer.writerow([
-                    each["user_id"], each["first_name"], each["last_name"], each["email"],
-                    each["phone_number"], each["created_at"], each["updated_at"], each["address_id"],
+                    each.get("user_id"), each.get("first_name"), each.get("last_name"), each.get("email"),
+                    each.get("phone_number"), each.get("created_at"), each.get("updated_at"), address_id,
                 ])
         return "load_data_to_gcs"
     return "do_nothing"
