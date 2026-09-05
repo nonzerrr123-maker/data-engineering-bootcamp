@@ -11,10 +11,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Remove any stale Spark/PySpark files before installing the course-pinned version.
-# This prevents mixed package contents after rebuilds.
+# The Spark provider also installs pyspark-client, so keep both packages on the
+# same Spark version to avoid a mixed pyspark package tree.
 RUN rm -rf \
       /home/airflow/.local/lib/python3.10/site-packages/pyspark \
       /home/airflow/.local/lib/python3.10/site-packages/pyspark-*.dist-info \
+      /home/airflow/.local/lib/python3.10/site-packages/pyspark_client-*.dist-info \
       /home/airflow/.local/bin/find_spark_home \
       /home/airflow/.local/bin/pyspark \
       /home/airflow/.local/bin/spark-class \
@@ -28,16 +30,17 @@ USER airflow
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH=/home/airflow/.local/bin:${PATH}
 
+# Day 4 only needs Airflow + Spark. Do not install the Week 5 dbt/cosmos stack
+# here: its storage pins conflict with the Airflow 3.3.0 base image.
 RUN python -m pip install --no-cache-dir \
       pyspark==4.1.0 \
+      pyspark-client==4.1.0 \
       apache-airflow-providers-apache-spark==6.2.0 \
-      astronomer-cosmos==1.15.0 \
-      dbt-core==1.12.0 \
-      dbt-bigquery==1.12.0 \
     && python -m pip check
 
-# Fail the image build immediately if PySpark or the Spark provider cannot import.
+# Fail the image build immediately if PySpark or the Spark provider is broken.
 RUN python -c "import pyspark; assert pyspark.__version__ == '4.1.0'; print('PySpark', pyspark.__version__, 'OK')" \
+    && python -c "from pyspark.core.status import StatusTracker, SparkJobInfo, SparkStageInfo; print('PySpark status API OK')" \
     && python -c "from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator; print('Spark provider OK')"
 
 COPY --chown=airflow:0 ./conf/spark-defaults.conf /home/airflow/.local/lib/python3.10/site-packages/pyspark/conf/spark-defaults.conf
