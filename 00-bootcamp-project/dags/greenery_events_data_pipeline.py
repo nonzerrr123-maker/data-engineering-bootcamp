@@ -29,12 +29,16 @@ def _extract_data(ds):
     if data:
         with open(f"{DAGS_FOLDER}/{DATA}-{ds}.csv", "w", newline="") as f:
             writer = csv.writer(f)
-            header = ["event_id", "session_id", "page_url", "created_at", "event_type", "user", "order", "product"]
+            # Keep the CSV/Parquet names aligned with the BigQuery table schema.
+            header = ["event_id", "session_id", "user_id", "page_url", "created_at", "event_type", "order_id", "product_id"]
             writer.writerow(header)
             for each in data:
+                user_id = each.get("user_id", each.get("user"))
+                order_id = each.get("order_id", each.get("order"))
+                product_id = each.get("product_id", each.get("product"))
                 writer.writerow([
-                    each["event_id"], each["session_id"], each["page_url"], each["created_at"],
-                    each["event_type"], each["user"], each["order"], each["product"],
+                    each.get("event_id"), each.get("session_id"), user_id, each.get("page_url"),
+                    each.get("created_at"), each.get("event_type"), order_id, product_id,
                 ])
         return "load_data_to_gcs"
     return "do_nothing"

@@ -36,11 +36,16 @@ def _extract_data(ds):
             ]
             writer.writerow(header)
             for each in data:
+                # DRF serializes ForeignKey fields with the model field names
+                # (`user`, `promo`, `address`). The warehouse schema uses *_id.
+                user_id = each.get("user_id", each.get("user"))
+                promo_id = each.get("promo_id", each.get("promo"))
+                address_id = each.get("address_id", each.get("address"))
                 writer.writerow([
-                    each["order_id"], each["user_id"], each["promo_id"], each["address_id"],
-                    each["created_at"], each["order_cost"], each["shipping_cost"], each["order_total"],
-                    each["tracking_id"], each["shipping_service"], each["estimated_delivery_at"],
-                    each["delivered_at"], each["status"],
+                    each.get("order_id"), user_id, promo_id, address_id,
+                    each.get("created_at"), each.get("order_cost"), each.get("shipping_cost"), each.get("order_total"),
+                    each.get("tracking_id"), each.get("shipping_service"), each.get("estimated_delivery_at"),
+                    each.get("delivered_at"), each.get("status"),
                 ])
         return "load_data_to_gcs"
     return "do_nothing"
