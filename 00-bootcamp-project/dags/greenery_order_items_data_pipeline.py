@@ -18,19 +18,31 @@ BUCKET_NAME = "deb-bootcamp-005-non"
 DAGS_FOLDER = "/opt/airflow/dags"
 KEYFILE_PATH = "/opt/spark/pyspark/project-b9bafacf-46f9-43ef-bcc-6ca8073c5513.json"
 DATA = "order_items"
+API_RESOURCE = "order-items"
 
 
 def _extract_data():
-    url = f"http://34.87.139.82:8000/{DATA}/"
+    # The Greenery Django router exposes this resource as /order-items/ (hyphen),
+    # while the warehouse table/file name is order_items (underscore).
+    url = f"http://34.87.139.82:8000/{API_RESOURCE}/"
     response = requests.get(url, timeout=60)
     response.raise_for_status()
     data = response.json()
+
     with open(f"{DAGS_FOLDER}/{DATA}.csv", "w", newline="") as f:
         writer = csv.writer(f)
-        header = ["order_id", "product_id", "quantity"]
-        writer.writerow(header)
+        writer.writerow(["order_id", "product_id", "quantity"])
+
         for each in data:
-            writer.writerow([each["order_id"], each["product_id"], each["quantity"]])
+            # DRF serializes the model ForeignKey field names as `order` and
+            # `product`. Keep compatibility with an API that may expose *_id.
+            order_id = each.get("order_id", each.get("order"))
+            product_id = each.get("product_id", each.get("product"))
+            if order_id is None or product_id is None:
+                raise KeyError(
+                    "Unexpected order-items API fields: " + ", ".join(sorted(each.keys()))
+                )
+            writer.writerow([order_id, product_id, each.get("quantity")])
 
 
 def _load_data_to_gcs():
