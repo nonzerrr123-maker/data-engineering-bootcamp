@@ -17,11 +17,16 @@ args = parse_args()
 spark = (
     SparkSession.builder
     .appName(f"greenery_{args.table}_transform")
-    .config("spark.memory.offHeap.enabled", "true")
-    .config("spark.memory.offHeap.size", "5g")
-    .config("fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
-    .config("google.cloud.auth.service.account.enable", "true")
-    .config("google.cloud.auth.service.account.json.keyfile", args.keyfile)
+    # The GCS connector is shipped in both the Airflow and Spark images.
+    # Use Hadoop-prefixed Spark configs so they are actually propagated to
+    # the Hadoop FileSystem used by the driver and executors.
+    .config("spark.hadoop.fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
+    .config("spark.hadoop.fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS")
+    .config("spark.hadoop.google.cloud.auth.service.account.enable", "true")
+    .config("spark.hadoop.google.cloud.auth.service.account.json.keyfile", args.keyfile)
+    # Newer GCS connector releases also understand the fs.gs.auth.* form.
+    .config("spark.hadoop.fs.gs.auth.type", "SERVICE_ACCOUNT_JSON_KEYFILE")
+    .config("spark.hadoop.fs.gs.auth.service.account.json.keyfile", args.keyfile)
     .getOrCreate()
 )
 
