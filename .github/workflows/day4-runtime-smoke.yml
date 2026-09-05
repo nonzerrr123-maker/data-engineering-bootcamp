@@ -5,6 +5,7 @@ on:
     branches:
       - fix/day4-airflow-spark-runtime
       - fix/day4-dag-registration
+      - fix/day4-spark-transform
   workflow_dispatch:
 
 jobs:
@@ -121,3 +122,26 @@ jobs:
             --entrypoint /opt/spark/bin/spark-submit \
             day4-spark:ci \
             --version
+
+      - name: Verify bundled GCS connector can be loaded by Spark
+        run: |
+          cat > /tmp/gcs_connector_smoke.py <<'PY'
+          from pyspark.sql import SparkSession
+
+          spark = SparkSession.builder.master("local[1]").appName("gcs_connector_smoke").getOrCreate()
+          jvm = spark.sparkContext._jvm
+          hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()
+          cls = jvm.org.apache.hadoop.fs.FileSystem.getFileSystemClass("gs", hadoop_conf)
+          name = cls.getName()
+          print("GCS filesystem class:", name)
+          assert "GoogleHadoopFileSystem" in name
+          spark.stop()
+          PY
+
+          docker run --rm \
+            -v /tmp/gcs_connector_smoke.py:/tmp/gcs_connector_smoke.py:ro \
+            --entrypoint /opt/spark/bin/spark-submit \
+            day4-spark:ci \
+            --master local[1] \
+            --conf spark.eventLog.enabled=false \
+            /tmp/gcs_connector_smoke.py
