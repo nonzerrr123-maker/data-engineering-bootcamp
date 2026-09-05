@@ -7,16 +7,19 @@ from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import BranchPythonOperator, PythonOperator
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.utils import timezone
-from google.cloud import bigquery, storage
+from google.cloud import storage
 from google.oauth2 import service_account
 
+from day4_gcp import load_parquet_to_bigquery
+
 BUSINESS_DOMAIN = "greenery"
-LOCATION = "asia-southeast1"
 GCP_PROJECT_ID = "project-b9bafacf-46f9-43ef-bcc"
+DATASET_ID = "deb_bootcamp"
 BUCKET_NAME = "deb-bootcamp-005-non"
 DAGS_FOLDER = "/opt/airflow/dags"
 KEYFILE_PATH = "/opt/spark/pyspark/project-b9bafacf-46f9-43ef-bcc-6ca8073c5513.json"
 DATA = "events"
+
 
 def _extract_data(ds):
     url = f"http://34.87.139.82:8000/{DATA}/?created_at={ds}"
@@ -36,6 +39,7 @@ def _extract_data(ds):
         return "load_data_to_gcs"
     return "do_nothing"
 
+
 def _load_data_to_gcs(ds):
     service_account_info = json.load(open(KEYFILE_PATH))
     credentials = service_account.Credentials.from_service_account_info(service_account_info)
@@ -45,25 +49,20 @@ def _load_data_to_gcs(ds):
     destination_blob_name = f"raw/{BUSINESS_DOMAIN}/{DATA}/{DATA}-{ds}.csv"
     bucket.blob(destination_blob_name).upload_from_filename(file_path)
 
+
 def _load_data_from_gcs_to_bigquery(ds):
-    service_account_info = json.load(open(KEYFILE_PATH))
-    credentials = service_account.Credentials.from_service_account_info(service_account_info)
-    bigquery_client = bigquery.Client(project=GCP_PROJECT_ID, credentials=credentials, location=LOCATION)
-    ds_nodash = ds.replace("-", "")
     source_uri = f"gs://{BUCKET_NAME}/cleaned/{BUSINESS_DOMAIN}/{DATA}/ds={ds}/*.parquet"
-    table_id = f"{GCP_PROJECT_ID}.deb_bootcamp.{DATA}${ds_nodash}"
-    job_config = bigquery.LoadJobConfig(
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        source_format=bigquery.SourceFormat.PARQUET,
-        time_partitioning=bigquery.TimePartitioning(
-            type_=bigquery.TimePartitioningType.DAY,
-            field="created_at",
-        ),
+    load_parquet_to_bigquery(
+        project_id=GCP_PROJECT_ID,
+        dataset_id=DATASET_ID,
+        table_name=DATA,
+        bucket_name=BUCKET_NAME,
+        source_uri=source_uri,
+        keyfile_path=KEYFILE_PATH,
+        partition_field="created_at",
+        partition_date=ds,
     )
-    job = bigquery_client.load_table_from_uri(source_uri, table_id, job_config=job_config, location=LOCATION)
-    job.result()
-    table = bigquery_client.get_table(f"{GCP_PROJECT_ID}.deb_bootcamp.{DATA}")
-    print(f"Loaded partition {ds}; table now has {table.num_rows} rows")
+
 
 default_args = {"owner": "airflow", "start_date": timezone.datetime(2021, 2, 9)}
 
