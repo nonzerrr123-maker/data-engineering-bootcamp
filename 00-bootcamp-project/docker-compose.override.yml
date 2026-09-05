@@ -1,6 +1,6 @@
 # Day 4 local runtime overrides.
 # Keep custom images separate from upstream tags, make every Spark service buildable,
-# and provide the Airflow Spark connection automatically.
+# provide the Airflow Spark connection automatically, and keep Spark healthy during long backfills.
 services:
   airflow-apiserver:
     image: day4-airflow:3.3.0
@@ -11,6 +11,9 @@ services:
     image: day4-airflow:3.3.0
     environment:
       AIRFLOW_CONN_MY_SPARK: "spark://spark-master:7077?deploy-mode=client&spark_binary=spark-submit"
+    depends_on:
+      spark-master:
+        condition: service_healthy
 
   airflow-dag-processor:
     image: day4-airflow:3.3.0
@@ -32,15 +35,30 @@ services:
     build:
       context: docker
       dockerfile: Dockerfile-spark
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/7077'"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
 
   spark-history:
     image: day4-spark:4.1.0
     build:
       context: docker
       dockerfile: Dockerfile-spark
+    restart: unless-stopped
+    depends_on:
+      spark-master:
+        condition: service_healthy
 
   spark-worker:
     image: day4-spark:4.1.0
     build:
       context: docker
       dockerfile: Dockerfile-spark
+    restart: unless-stopped
+    depends_on:
+      spark-master:
+        condition: service_healthy
