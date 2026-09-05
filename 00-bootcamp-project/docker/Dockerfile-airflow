@@ -10,18 +10,38 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Remove any stale Spark/PySpark files before installing the course-pinned version.
+# This prevents mixed package contents after rebuilds.
+RUN rm -rf \
+      /home/airflow/.local/lib/python3.10/site-packages/pyspark \
+      /home/airflow/.local/lib/python3.10/site-packages/pyspark-*.dist-info \
+      /home/airflow/.local/bin/find_spark_home \
+      /home/airflow/.local/bin/pyspark \
+      /home/airflow/.local/bin/spark-class \
+      /home/airflow/.local/bin/spark-shell \
+      /home/airflow/.local/bin/spark-sql \
+      /home/airflow/.local/bin/spark-submit \
+    || true
+
 USER airflow
 
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-RUN export JAVA_HOME
+ENV PATH=/home/airflow/.local/bin:${PATH}
 
-RUN pip install --no-cache-dir apache-airflow-providers-apache-spark==6.2.0 \
-                               pyspark==4.1.0 \
-                               astronomer-cosmos==1.15.0 \
-                               dbt-core==1.12.0 \
-                               dbt-bigquery==1.12.0
+RUN python -m pip install --no-cache-dir \
+      pyspark==4.1.0 \
+      apache-airflow-providers-apache-spark==6.2.0 \
+      astronomer-cosmos==1.15.0 \
+      dbt-core==1.12.0 \
+      dbt-bigquery==1.12.0 \
+    && python -m pip check
 
-COPY ./conf/spark-defaults.conf /home/airflow/.local/lib/python3.10/site-packages/pyspark/conf/spark-defaults.conf
-COPY ./conf/metrics.properties /home/airflow/.local/lib/python3.10/site-packages/pyspark/conf/metrics.properties
-COPY ./jars/gcs-connector-hadoop3-latest.jar /home/airflow/.local/lib/python3.10/site-packages/pyspark/jars/gcs-connector-hadoop3-latest.jar
+# Fail the image build immediately if PySpark or the Spark provider cannot import.
+RUN python -c "import pyspark; assert pyspark.__version__ == '4.1.0'; print('PySpark', pyspark.__version__, 'OK')" \
+    && python -c "from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator; print('Spark provider OK')"
+
+COPY --chown=airflow:0 ./conf/spark-defaults.conf /home/airflow/.local/lib/python3.10/site-packages/pyspark/conf/spark-defaults.conf
+COPY --chown=airflow:0 ./conf/metrics.properties /home/airflow/.local/lib/python3.10/site-packages/pyspark/conf/metrics.properties
+COPY --chown=airflow:0 ./jars/gcs-connector-hadoop3-latest.jar /home/airflow/.local/lib/python3.10/site-packages/pyspark/jars/gcs-connector-hadoop3-latest.jar
+
 ENV SPARK_CONF_DIR=/home/airflow/.local/lib/python3.10/site-packages/pyspark/conf
