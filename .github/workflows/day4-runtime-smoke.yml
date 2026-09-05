@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/day4-airflow-spark-runtime
+      - fix/day4-dag-registration
   workflow_dispatch:
 
 jobs:
@@ -34,6 +35,72 @@ jobs:
             -e AIRFLOW__CORE__LOAD_EXAMPLES=false \
             day4-airflow:ci \
             python -c "from airflow.models import DagBag; b=DagBag(dag_folder='/opt/airflow/dags'); print('DAGs:', sorted(b.dags)); print('Import errors:', b.import_errors); assert not b.import_errors; expected={'greenery_addresses_data_pipeline','greenery_order_items_data_pipeline','greenery_products_data_pipeline','greenery_promos_data_pipeline','greenery_events_data_pipeline','greenery_orders_data_pipeline','greenery_users_data_pipeline'}; assert expected.issubset(set(b.dags))"
+
+  full-airflow-registration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: 00-bootcamp-project
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare local Airflow environment
+        run: |
+          mkdir -p dags config logs plugins tests pyspark spark-events
+          printf 'AIRFLOW_UID=%s\n' "$(id -u)" > .env
+          python - <<'PY' >> .env
+          import base64, os
+          print('FERNET_KEY=' + base64.urlsafe_b64encode(os.urandom(32)).decode())
+          PY
+
+      - name: Start Airflow stack exactly like Codespaces
+        run: |
+          docker compose up --build -d airflow-apiserver airflow-scheduler airflow-dag-processor
+          docker compose ps
+
+      - name: Wait for DAG processor to register all seven DAGs
+        run: |
+          expected=(
+            greenery_addresses_data_pipeline
+            greenery_order_items_data_pipeline
+            greenery_products_data_pipeline
+            greenery_promos_data_pipeline
+            greenery_events_data_pipeline
+            greenery_orders_data_pipeline
+            greenery_users_data_pipeline
+          )
+
+          ok=0
+          for i in $(seq 1 60); do
+            output="$(docker compose exec -T airflow-scheduler airflow dags list 2>&1 || true)"
+            missing=0
+            for dag in "${expected[@]}"; do
+              if ! grep -q "$dag" <<<"$output"; then
+                missing=$((missing + 1))
+              fi
+            done
+            if [[ "$missing" -eq 0 ]]; then
+              printf '%s\n' "$output"
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [[ "$ok" -ne 1 ]]; then
+            echo 'DAG registration failed. Current DAG list:'
+            docker compose exec -T airflow-scheduler airflow dags list || true
+            echo 'Import errors:'
+            docker compose exec -T airflow-scheduler airflow dags list-import-errors || true
+            echo 'DAG processor logs:'
+            docker compose logs --no-color --tail=300 airflow-dag-processor
+            exit 1
+          fi
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v --remove-orphans
 
   spark-image:
     runs-on: ubuntu-latest
