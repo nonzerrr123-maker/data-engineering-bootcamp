@@ -33,7 +33,7 @@ jobs:
             -v "$GITHUB_WORKSPACE/00-bootcamp-project/dags:/opt/airflow/dags:ro" \
             -e AIRFLOW__CORE__LOAD_EXAMPLES=false \
             day4-airflow:ci \
-            python -c "from airflow.models import DagBag; b=DagBag(dag_folder='/opt/airflow/dags', include_examples=False); print('DAGs:', sorted(b.dags)); print('Import errors:', b.import_errors); assert not b.import_errors; expected={'greenery_addresses_data_pipeline','greenery_order_items_data_pipeline','greenery_products_data_pipeline','greenery_promos_data_pipeline','greenery_events_data_pipeline','greenery_orders_data_pipeline','greenery_users_data_pipeline'}; assert expected.issubset(set(b.dags))"
+            python -c "from airflow.models import DagBag; b=DagBag(dag_folder='/opt/airflow/dags'); print('DAGs:', sorted(b.dags)); print('Import errors:', b.import_errors); assert not b.import_errors; expected={'greenery_addresses_data_pipeline','greenery_order_items_data_pipeline','greenery_products_data_pipeline','greenery_promos_data_pipeline','greenery_events_data_pipeline','greenery_orders_data_pipeline','greenery_users_data_pipeline'}; assert expected.issubset(set(b.dags))"
 
   spark-image:
     runs-on: ubuntu-latest
