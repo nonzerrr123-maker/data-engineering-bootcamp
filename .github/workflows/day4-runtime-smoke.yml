@@ -3,6 +3,7 @@ name: Day 4 Runtime Smoke
 on:
   push:
     branches:
+      - main
       - fix/day4-airflow-spark-runtime
       - fix/day4-dag-registration
       - fix/day4-spark-transform
