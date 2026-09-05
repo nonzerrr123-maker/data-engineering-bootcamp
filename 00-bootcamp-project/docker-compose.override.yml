@@ -32,16 +32,20 @@ services:
 
   spark-master:
     image: day4-spark:4.1.0
+    hostname: spark-master
     build:
       context: docker
       dockerfile: Dockerfile-spark
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/7077'"]
+      # Spark binds to the container/service hostname, not necessarily loopback.
+      # Checking the Docker DNS name avoids false "unhealthy" status while the
+      # master is actually listening on 7077.
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/spark-master/7077'"]
       interval: 5s
       timeout: 3s
-      retries: 12
-      start_period: 10s
+      retries: 18
+      start_period: 15s
 
   spark-history:
     image: day4-spark:4.1.0
