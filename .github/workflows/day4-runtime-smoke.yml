@@ -7,6 +7,7 @@ on:
       - fix/day4-airflow-spark-runtime
       - fix/day4-dag-registration
       - fix/day4-spark-transform
+      - fix/day4-bigquery-final-load
   workflow_dispatch:
 
 jobs:
