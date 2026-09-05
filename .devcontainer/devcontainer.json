@@ -1,5 +1,13 @@
 {
-    "postAttachCommand": {
-      "poetry": ["make", "poetry"]
+  "postStartCommand": "bash 00-bootcamp-project/auto_start_day4.sh",
+  "postAttachCommand": {
+    "poetry": ["make", "poetry"]
+  },
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Airflow",
+      "onAutoForward": "openBrowser"
     }
   }
+}
