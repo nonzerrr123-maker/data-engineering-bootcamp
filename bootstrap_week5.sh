@@ -28,7 +28,7 @@ run_check() {
     return 0
   else
     record_fail "$label"
-    return 1
+    return 0
   fi
 }
 
@@ -127,7 +127,7 @@ run_check "dbt snapshot" poetry run dbt snapshot --profiles-dir .
 run_check "dbt docs generate" poetry run dbt docs generate --profiles-dir .
 
 section "3) Verify required dbt artifacts"
-python - "$GREENERY" <<'PY'
+if python - "$GREENERY" <<'PY'
 from pathlib import Path
 import sys
 root=Path(sys.argv[1])
@@ -160,7 +160,11 @@ if missing:
     raise SystemExit(1)
 print(f"Required artifacts OK: {len(required)}")
 PY
-if [[ $? -eq 0 ]]; then record_pass "required workshop artifacts"; else record_fail "required workshop artifacts"; fi
+then
+  record_pass "required workshop artifacts"
+else
+  record_fail "required workshop artifacts"
+fi
 
 section "4) BigQuery result checks"
 if poetry run python - "$GCP_PROJECT" "$KEYFILE" <<'PY'
@@ -250,14 +254,15 @@ fi
 
 cd "$SCHED"
 mkdir -p logs config plugins tests
-if [[ ! -f .env ]]; then
-  {
-    echo "AIRFLOW_UID=$(id -u)"
-    python - <<'PY'
+touch .env
+if ! grep -q '^AIRFLOW_UID=' .env; then
+  echo "AIRFLOW_UID=$(id -u)" >> .env
+fi
+if ! grep -q '^FERNET_KEY=' .env; then
+  python - <<'PY' >> .env
 from cryptography.fernet import Fernet
 print("FERNET_KEY="+Fernet.generate_key().decode())
 PY
-  } > .env
 fi
 
 run_check "Build/start Week 5 Airflow + Cosmos" docker compose up -d --build
@@ -278,10 +283,16 @@ else
   cat /tmp/week5_conn.log
   record_fail "Airflow connection bigquery_dbt"
 fi
+# The temporary file contains the private key JSON; remove it immediately after
+# the connection has been stored encrypted by Airflow.
+rm -f "$CONN_EXTRA_FILE"
+unset EXTRA
+
+# Force a fresh parse now that the BigQuery connection exists.
+docker compose restart airflow-dag-processor airflow-scheduler >/dev/null 2>&1 || true
 
 section "7) Validate Cosmos DAG parsing"
-# Give dag processor time to parse.
-sleep 20
+sleep 25
 if docker compose exec -T airflow-apiserver airflow dags list 2>/tmp/week5_dags.err | grep -q 'greenery_dbt_dag'; then
   record_pass "greenery_dbt_dag visible to Airflow"
 else

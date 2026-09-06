@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: greenery
     description: Raw Greenery tables loaded to BigQuery in the earlier bootcamp pipeline.
-    database: "{{ env_var('DBT_GCP_PROJECT') }}"
+    database: project-b9bafacf-46f9-43ef-bcc
     schema: deb_bootcamp
 
     tables:
