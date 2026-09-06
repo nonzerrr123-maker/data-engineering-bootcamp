@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: my_users
+    description: Greenery users example model from the Day 5 workshop.
+    columns:
+      - name: user_id
+        description: User ID
+
+  - name: my_events
+    description: Greenery events example model, materialized as a partitioned table.
+    columns:
+      - name: event_id
+        description: Event ID
+        data_tests:
+          - not_null
+          - unique
+          - dbt_expectations.expect_column_to_exist
+          - dbt_expectations.expect_column_values_to_be_unique
+      - name: event_type
+        description: Event Type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['page_view', 'add_to_cart', 'checkout', 'package_shipped']
+          - dbt_expectations.expect_column_values_to_be_of_type:
+              arguments:
+                column_type: string
+      - name: user_id
+        description: User ID
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('my_users')
+                field: user_id
