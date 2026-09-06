@@ -1,0 +1,18 @@
+services:
+  airflow-apiserver:
+    environment:
+      AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 300
+      AIRFLOW__COSMOS__DBT_DOCS_PROJECTS: >-
+        {"greenery":{"dir":"/opt/airflow/dbt/greenery/target","index":"index.html","name":"dbt Docs (Greenery)"}}
+
+  airflow-scheduler:
+    environment:
+      AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 300
+      AIRFLOW__COSMOS__DBT_DOCS_PROJECTS: >-
+        {"greenery":{"dir":"/opt/airflow/dbt/greenery/target","index":"index.html","name":"dbt Docs (Greenery)"}}
+
+  airflow-dag-processor:
+    environment:
+      AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 300
+      AIRFLOW__COSMOS__DBT_DOCS_PROJECTS: >-
+        {"greenery":{"dir":"/opt/airflow/dbt/greenery/target","index":"index.html","name":"dbt Docs (Greenery)"}}
