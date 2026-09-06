@@ -1,0 +1,110 @@
+name: Week 5 Workshop Airflow Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '05-analytics-engineering/scheduling-dbt/**'
+      - '.github/workflows/week5-workshop-airflow.yml'
+  workflow_dispatch:
+
+jobs:
+  airflow-registration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: 05-analytics-engineering/scheduling-dbt
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Static checks
+        run: |
+          python -m py_compile dags/greenery_dbt_dag.py dags/greenery_dbt_docs.py
+          test -f dbt/greenery/dbt_project.yml
+          test -f dbt/greenery/models/staging/greenery/_src.yml
+          test -f dbt/greenery/models/marts/number_of_users.sql
+          grep -q 'AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 300' docker-compose.override.yml
+
+      - name: Prepare Airflow environment
+        run: |
+          mkdir -p logs config plugins tests
+          printf 'AIRFLOW_UID=%s\n' "$(id -u)" > .env
+          python - <<'PY' >> .env
+          import base64, os
+          print('FERNET_KEY=' + base64.urlsafe_b64encode(os.urandom(32)).decode())
+          PY
+
+      - name: Build custom Airflow image
+        run: docker compose build
+
+      - name: Start API server without DAG processor
+        run: docker compose up -d postgres airflow-init airflow-apiserver
+
+      - name: Create non-secret fake BigQuery connection for parse test
+        run: |
+          for i in $(seq 1 60); do
+            if docker compose exec -T airflow-apiserver airflow version >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+
+          openssl genrsa -out /tmp/week5-ci-key.pem 2048 >/dev/null 2>&1
+          python - <<'PY' > /tmp/week5-extra.json
+          import json
+          private_key = open('/tmp/week5-ci-key.pem', encoding='utf-8').read()
+          key = {
+              'type': 'service_account',
+              'project_id': 'project-b9bafacf-46f9-43ef-bcc',
+              'private_key_id': 'ci-only',
+              'private_key': private_key,
+              'client_email': 'ci-only@project-b9bafacf-46f9-43ef-bcc.iam.gserviceaccount.com',
+              'client_id': '1234567890',
+              'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
+              'token_uri': 'https://oauth2.googleapis.com/token',
+              'auth_provider_x509_cert_url': 'https://www.googleapis.com/oauth2/v1/certs',
+              'client_x509_cert_url': 'https://www.googleapis.com/robot/v1/metadata/x509/ci-only',
+              'universe_domain': 'googleapis.com',
+          }
+          print(json.dumps({
+              'project': key['project_id'],
+              'dataset': 'dbt_suntisuk',
+              'keyfile_dict': key,
+          }, separators=(',', ':')))
+          PY
+          EXTRA="$(cat /tmp/week5-extra.json)"
+          docker compose exec -T airflow-apiserver airflow connections delete bigquery_dbt >/dev/null 2>&1 || true
+          docker compose exec -T airflow-apiserver airflow connections add bigquery_dbt \
+            --conn-type google_cloud_platform \
+            --conn-extra "$EXTRA"
+
+      - name: Start scheduler and DAG processor
+        run: docker compose up -d airflow-scheduler airflow-dag-processor
+
+      - name: Verify Greenery DAGs register
+        run: |
+          ok=0
+          for i in $(seq 1 90); do
+            output="$(docker compose exec -T airflow-apiserver airflow dags list 2>&1 || true)"
+            if grep -q 'greenery_dbt_dag' <<<"$output" && grep -q 'greenery_dbt_docs' <<<"$output"; then
+              printf '%s\n' "$output"
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          if [[ "$ok" -ne 1 ]]; then
+            echo 'DAG registration failed'
+            docker compose exec -T airflow-apiserver airflow dags list || true
+            docker compose exec -T airflow-apiserver airflow dags list-import-errors || true
+            docker compose logs --no-color --tail=300 airflow-dag-processor || true
+            exit 1
+          fi
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v --remove-orphans
