@@ -1,0 +1,33 @@
+name: "greenery"
+version: "1.0.0"
+config-version: 2
+
+profile: "greenery"
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  "dbt_date:time_zone": "Asia/Bangkok"
+
+models:
+  greenery:
+    +materialized: view
+    staging:
+      greenery:
+        +materialized: view
+        +schema: staging
+    intermediate:
+      +materialized: table
+      +schema: intermediate
+    marts:
+      +materialized: view
+      +schema: reporting
