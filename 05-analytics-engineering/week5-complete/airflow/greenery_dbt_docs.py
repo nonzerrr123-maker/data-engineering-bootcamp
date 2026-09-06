@@ -1,3 +1,6 @@
+from pathlib import Path
+import shutil
+
 from airflow import DAG
 from airflow.utils import timezone
 
@@ -27,8 +30,10 @@ with DAG(
     )
 
     def persist_docs(project_dir, **kwargs):
-        import os
-        os.system(f"cp -R {project_dir}/target {DBT_PROJECT_DIR}")
+        source = Path(project_dir) / "target"
+        destination = Path(DBT_PROJECT_DIR) / "target"
+        shutil.rmtree(destination, ignore_errors=True)
+        shutil.copytree(source, destination)
 
     generate_dbt_docs = DbtDocsOperator(
         task_id="generate_dbt_docs",

@@ -122,9 +122,12 @@ else
   fi
 fi
 
-run_check "dbt build: models + generic/singular/unit tests" poetry run dbt build --profiles-dir .
-run_check "dbt snapshot" poetry run dbt snapshot --profiles-dir .
-run_check "dbt docs generate" poetry run dbt docs generate --profiles-dir .
+run_check "dbt compile / parse project" poetry run dbt compile --profiles-dir .
+run_check "Sources + Models + Materialization (dbt run)" poetry run dbt run --profiles-dir .
+run_check "Unit Test: valid email" poetry run dbt test --select test_is_valid_email_address --profiles-dir .
+run_check "Generic + Singular + dbt_expectations tests" poetry run dbt test --profiles-dir .
+run_check "Snapshots" poetry run dbt snapshot --profiles-dir .
+run_check "Documentation (dbt docs generate)" poetry run dbt docs generate --profiles-dir .
 
 section "3) Verify required dbt artifacts"
 if python - "$GREENERY" <<'PY'
@@ -182,6 +185,7 @@ queries = {
     "number_of_orders": f"select order_count from `{project}.dbt_suntisuk_reporting.number_of_orders`",
     "highest_order_state": f"select state, order_count from `{project}.dbt_suntisuk_reporting.highest_order_state`",
     "basket_region": f"select count(*) c from `{project}.dbt_suntisuk_reporting.order_basket_region_summary`",
+    "snapshot": f"select count(*) c from `{project}.snapshots.users_snapshot`",
 }
 for name,q in queries.items():
     rows=list(client.query(q).result())
@@ -216,35 +220,12 @@ print(json.dumps({"project":project,"dataset":"dbt_suntisuk","keyfile_dict":key}
 PY
 chmod 600 "$CONN_EXTRA_FILE"
 
-# Workshop says Cosmos can take longer to parse on Codespaces.
-if ! grep -q 'AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT' "$SCHED/docker-compose.yml"; then
-  python - "$SCHED/docker-compose.yml" <<'PY'
-from pathlib import Path
-import sys
-p=Path(sys.argv[1])
-s=p.read_text()
-needle="    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'\n"
-replacement=needle+"    AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 300\n"
-if needle not in s:
-    raise SystemExit("Could not patch DAGBAG timeout")
-p.write_text(s.replace(needle,replacement,1))
-PY
+# Use a Compose override rather than editing the course docker-compose.yml.
+# It adds the 300s DAG parse timeout and Airflow 3.x Cosmos docs hosting.
+if [[ -f "$SCHED/docker-compose.override.yml" ]]; then
+  cp "$SCHED/docker-compose.override.yml" "$BACKUP_DIR/scheduling-dbt-compose-override_$(date +%Y%m%d_%H%M%S).yml"
 fi
-
-# Hosting dbt docs in Airflow 3.x, adapted from the workshop.
-if ! grep -q 'AIRFLOW__COSMOS__DBT_DOCS_PROJECTS' "$SCHED/docker-compose.yml"; then
-  python - "$SCHED/docker-compose.yml" <<'PY'
-from pathlib import Path
-import sys
-p=Path(sys.argv[1])
-s=p.read_text()
-needle="    AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 300\n"
-line='    AIRFLOW__COSMOS__DBT_DOCS_PROJECTS: \'{"greenery":{"dir":"/opt/airflow/dbt/greenery/target","index":"index.html","name":"dbt Docs (Greenery)"}}\'\n'
-if needle not in s:
-    raise SystemExit("Could not patch Cosmos docs env")
-p.write_text(s.replace(needle,needle+line,1))
-PY
-fi
+cp "$SOLUTION/airflow/docker-compose.override.yml" "$SCHED/docker-compose.override.yml"
 
 # Stop Week 4 containers only (keep volumes) because both workshops use port 8080.
 if [[ -f "$ROOT/00-bootcamp-project/docker-compose.yml" ]]; then
