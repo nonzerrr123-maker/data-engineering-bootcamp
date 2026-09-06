@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: number_of_users
+    description: Number of distinct Greenery users.
+    columns:
+      - name: user_count
+        data_tests: [not_null]
+
+  - name: number_of_orders
+    description: Number of distinct Greenery orders.
+    columns:
+      - name: order_count
+        data_tests: [not_null]
+
+  - name: orders_by_state
+    description: Order counts by US state.
+
+  - name: highest_order_state
+    description: State with the highest number of orders.
+
+  - name: order_basket_region_summary
+    description: Order counts grouped by basket size and US region.

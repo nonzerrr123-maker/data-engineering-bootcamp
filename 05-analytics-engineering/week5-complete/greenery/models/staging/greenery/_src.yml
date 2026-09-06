@@ -1,0 +1,38 @@
+version: 2
+
+sources:
+  - name: greenery
+    description: Raw Greenery tables loaded to BigQuery in the earlier bootcamp pipeline.
+    database: "{{ env_var('DBT_GCP_PROJECT') }}"
+    schema: deb_bootcamp
+
+    tables:
+      - name: users
+        description: Greenery users
+        freshness:
+          warn_after: {count: 12, period: hour}
+          error_after: {count: 24, period: hour}
+        loaded_at_field: created_at
+
+      - name: events
+        description: Greenery events
+        freshness:
+          warn_after: {count: 12, period: hour}
+          error_after: {count: 24, period: hour}
+        loaded_at_field: created_at
+
+      - name: orders
+        description: Greenery orders
+
+      - name: addresses
+        description: Greenery addresses
+
+      - name: products
+        description: Greenery products
+
+      - name: order_items
+        description: Greenery order items
+
+      - name: promos
+        description: Greenery promotions
+        freshness: null

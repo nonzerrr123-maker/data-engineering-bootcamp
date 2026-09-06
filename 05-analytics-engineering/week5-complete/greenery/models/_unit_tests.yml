@@ -1,0 +1,12 @@
+version: 2
+
+unit_tests:
+  - name: test_is_valid_email_address
+    model: my_users
+    given:
+      - input: source('greenery', 'users')
+        format: sql
+        fixture: users_fixture
+    expect:
+      format: csv
+      fixture: expected_my_user
