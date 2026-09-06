@@ -113,7 +113,6 @@ set -e
 if [[ $FRESH_RC -eq 0 ]]; then
   record_pass "dbt source freshness"
 else
-  # The Notion workshop explicitly expects old users/events to be stale (>24h).
   if grep -Eqi 'stale|error|warn' /tmp/week5_freshness.log; then
     record_expected "dbt source freshness: historical users/events are stale (ตาม Workshop)"
   else
@@ -209,7 +208,6 @@ rm -rf "$SCHED/dbt/greenery/logs" "$SCHED/dbt/greenery/target"
 cp "$SOLUTION/airflow/greenery_dbt_dag.py" "$SCHED/dags/greenery_dbt_dag.py"
 cp "$SOLUTION/airflow/greenery_dbt_docs.py" "$SCHED/dags/greenery_dbt_docs.py"
 
-# Cosmos BigQuery mapping reads keyfile_dict from the Airflow connection.
 CONN_EXTRA_FILE="$SCHED/.bigquery_dbt_extra.json"
 python - "$KEYFILE" "$GCP_PROJECT" > "$CONN_EXTRA_FILE" <<'PY'
 import json,sys
@@ -220,14 +218,11 @@ print(json.dumps({"project":project,"dataset":"dbt_suntisuk","keyfile_dict":key}
 PY
 chmod 600 "$CONN_EXTRA_FILE"
 
-# Use a Compose override rather than editing the course docker-compose.yml.
-# It adds the 300s DAG parse timeout and Airflow 3.x Cosmos docs hosting.
 if [[ -f "$SCHED/docker-compose.override.yml" ]]; then
   cp "$SCHED/docker-compose.override.yml" "$BACKUP_DIR/scheduling-dbt-compose-override_$(date +%Y%m%d_%H%M%S).yml"
 fi
 cp "$SOLUTION/airflow/docker-compose.override.yml" "$SCHED/docker-compose.override.yml"
 
-# Stop Week 4 containers only (keep volumes) because both workshops use port 8080.
 if [[ -f "$ROOT/00-bootcamp-project/docker-compose.yml" ]]; then
   yellow "หยุด Week 4 Airflow ชั่วคราวเพื่อคืน port 8080 (ไม่ลบ volume/data)"
   (cd "$ROOT/00-bootcamp-project" && docker compose down >/dev/null 2>&1 || true)
@@ -249,7 +244,6 @@ fi
 run_check "Build/start Week 5 Airflow + Cosmos" docker compose up -d --build
 
 section "6) Create Airflow BigQuery connection"
-# Wait for API server.
 for i in {1..60}; do
   if docker compose exec -T airflow-apiserver airflow version >/dev/null 2>&1; then break; fi
   sleep 2
@@ -264,12 +258,9 @@ else
   cat /tmp/week5_conn.log
   record_fail "Airflow connection bigquery_dbt"
 fi
-# The temporary file contains the private key JSON; remove it immediately after
-# the connection has been stored encrypted by Airflow.
 rm -f "$CONN_EXTRA_FILE"
 unset EXTRA
 
-# Force a fresh parse now that the BigQuery connection exists.
 docker compose restart airflow-dag-processor airflow-scheduler >/dev/null 2>&1 || true
 
 section "7) Validate Cosmos DAG parsing"
@@ -282,7 +273,20 @@ else
   record_fail "greenery_dbt_dag visible to Airflow"
 fi
 
-section "8) Final summary"
+section "8) Execute Airflow/Cosmos DAGs end-to-end"
+run_check "Airflow/Cosmos greenery_dbt_dag execution" \
+  docker compose exec -T airflow-apiserver airflow dags test greenery_dbt_dag
+
+run_check "Airflow dbt Docs DAG execution" \
+  docker compose exec -T airflow-apiserver airflow dags test greenery_dbt_docs
+
+if [[ -f "$SCHED/dbt/greenery/target/index.html" ]]; then
+  record_pass "dbt Docs persisted for Airflow Browse menu"
+else
+  record_fail "dbt Docs persisted for Airflow Browse menu"
+fi
+
+section "9) Final summary"
 {
   echo
   echo "PASS=$PASS"
@@ -295,9 +299,9 @@ if [[ "$FAIL" -eq 0 ]]; then
   green "WEEK 5 WORKSHOP COMPLETE ✅"
   echo
   echo "เช็กเองแค่ 3 จุด:"
-  echo "1) เปิด Airflow port 8080 -> ต้องเห็น greenery_dbt_dag"
+  echo "1) เปิด Airflow port 8080 -> ต้องเห็น greenery_dbt_dag และ greenery_dbt_docs"
   echo "2) เปิด BigQuery -> ต้องเห็น dbt_suntisuk_staging / _intermediate / _reporting และ snapshots"
-  echo "3) ถ้าจะเปิด dbt docs แบบ standalone: cd $GREENERY && poetry run dbt docs serve --port 8081"
+  echo "3) Airflow > Browse -> dbt Docs (Greenery) ควรเปิด documentation ได้"
   exit 0
 else
   red "ยังมี $FAIL จุดไม่ผ่าน ดู $REPORT และ error เหนือบรรทัดนี้"
