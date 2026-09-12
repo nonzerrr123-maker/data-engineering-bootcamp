@@ -22,7 +22,7 @@ with DAG(
         profile_mapping=GoogleCloudServiceAccountDictProfileMapping(
             conn_id="bigquery_dbt",
             profile_args={
-                "dataset": "dbt_suntisuk",
+                "schema": "dbt_suntisuk",
                 "location": "asia-southeast1",
             },
         ),
@@ -31,6 +31,8 @@ with DAG(
     def persist_docs(project_dir, **kwargs):
         source = Path(project_dir) / "target"
         destination = Path(DBT_PROJECT_DIR) / "target"
+        if source.resolve() == destination.resolve():
+            return
         shutil.rmtree(destination, ignore_errors=True)
         shutil.copytree(source, destination)
 
