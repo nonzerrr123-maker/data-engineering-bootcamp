@@ -22,6 +22,11 @@ models:
   greenery:
     +materialized: view
 
+    # These were the early dbt tutorial models. The Day 5 workshop explicitly
+    # disables them before scheduling the real Greenery project in Airflow.
+    example:
+      +enabled: false
+
     staging:
       greenery:
         +materialized: view
