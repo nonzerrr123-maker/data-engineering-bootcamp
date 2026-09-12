@@ -5,19 +5,18 @@ models:
     description: Number of distinct Greenery users.
     columns:
       - name: user_count
-        data_tests: [not_null]
+        data_tests:
+          - not_null
 
   - name: number_of_orders
     description: Number of distinct Greenery orders.
     columns:
       - name: order_count
-        data_tests: [not_null]
+        data_tests:
+          - not_null
 
-  - name: orders_by_state
-    description: Order counts by US state.
+  - name: user_repeat_rate
+    description: Share of ordering users who placed at least two distinct orders.
 
-  - name: highest_order_state
-    description: State with the highest number of orders.
-
-  - name: order_basket_region_summary
-    description: Order counts grouped by basket size and US region.
+  - name: fct_orders
+    description: Order fact model built from the joined intermediate order model.
