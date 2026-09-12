@@ -2,6 +2,11 @@ name: Week 5 Workshop Airflow Smoke
 
 on:
   push:
+    branches: [main, week5-workshop-match-instructor]
+    paths:
+      - '05-analytics-engineering/scheduling-dbt/**'
+      - '.github/workflows/week5-workshop-airflow.yml'
+  pull_request:
     branches: [main]
     paths:
       - '05-analytics-engineering/scheduling-dbt/**'
@@ -25,10 +30,26 @@ jobs:
 
       - name: Static checks
         run: |
+          set -euo pipefail
           python -m py_compile dags/greenery_dbt_dag.py dags/greenery_dbt_docs.py
+
           test -f dbt/greenery/dbt_project.yml
           test -f dbt/greenery/models/staging/greenery/_src.yml
+          test -f dbt/greenery/models/intermediate/int_orders_products__joined.sql
+          test -f dbt/greenery/models/marts/fct_orders.sql
+          test -f dbt/greenery/models/marts/user_repeat_rate.sql
           test -f dbt/greenery/models/marts/number_of_users.sql
+          test -f dbt/greenery/models/marts/number_of_orders.sql
+          test -f dbt/greenery/snapshots/users_snapshot.sql
+
+          # The instructor's final graph does not include our earlier challenge extras.
+          test ! -f dbt/greenery/models/intermediate/int_orders_enriched.sql
+          test ! -f dbt/greenery/models/marts/highest_order_state.sql
+          test ! -f dbt/greenery/models/marts/orders_by_state.sql
+          test ! -f dbt/greenery/models/marts/order_basket_region_summary.sql
+
+          grep -q '^    example:' dbt/greenery/dbt_project.yml
+          grep -q '+enabled: false' dbt/greenery/dbt_project.yml
           grep -q 'AIRFLOW__CORE__DAGBAG_IMPORT_TIMEOUT: 300' docker-compose.override.yml
 
       - name: Prepare Airflow environment
@@ -87,6 +108,7 @@ jobs:
 
       - name: Verify Greenery DAGs register
         run: |
+          set -euo pipefail
           ok=0
           for i in $(seq 1 90); do
             output="$(docker compose exec -T airflow-apiserver airflow dags list 2>&1 || true)"
@@ -104,6 +126,48 @@ jobs:
             docker compose logs --no-color --tail=300 airflow-dag-processor || true
             exit 1
           fi
+
+      - name: Verify instructor-style Greenery graph
+        run: |
+          set -euo pipefail
+          tasks="$(docker compose exec -T airflow-apiserver airflow tasks list greenery_dbt_dag 2>&1)"
+          printf '%s\n' "$tasks"
+
+          for expected in \
+            stg_greenery__users \
+            stg_greenery__events \
+            stg_greenery__orders \
+            stg_greenery__addresses \
+            stg_greenery__products \
+            stg_greenery__order_items \
+            stg_greenery__promos \
+            users_snapshot \
+            int_orders_products__joined \
+            fct_orders \
+            user_repeat_rate \
+            number_of_users \
+            number_of_orders; do
+            grep -q "$expected" <<<"$tasks" || {
+              echo "Missing expected task/model: $expected"
+              exit 1
+            }
+          done
+
+          for forbidden in \
+            my_users \
+            my_events \
+            int_orders_enriched \
+            highest_order_state \
+            orders_by_state \
+            order_basket_region_summary; do
+            if grep -q "$forbidden" <<<"$tasks"; then
+              echo "Unexpected extra task/model in instructor graph: $forbidden"
+              exit 1
+            fi
+          done
+
+          docs_tasks="$(docker compose exec -T airflow-apiserver airflow tasks list greenery_dbt_docs 2>&1)"
+          grep -q 'generate_dbt_docs' <<<"$docs_tasks"
 
       - name: Tear down
         if: always()
