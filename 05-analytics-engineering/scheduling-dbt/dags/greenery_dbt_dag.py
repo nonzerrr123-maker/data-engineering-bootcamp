@@ -10,7 +10,7 @@ profile_config = ProfileConfig(
     profile_mapping=GoogleCloudServiceAccountDictProfileMapping(
         conn_id="bigquery_dbt",
         profile_args={
-            "dataset": "dbt_suntisuk",
+            "schema": "dbt_suntisuk",
             "location": "asia-southeast1",
         },
     ),
