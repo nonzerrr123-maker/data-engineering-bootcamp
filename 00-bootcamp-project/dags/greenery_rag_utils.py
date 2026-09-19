@@ -74,7 +74,7 @@ def build_context_chunks(frame: pd.DataFrame, processed_date: str | date) -> pd.
                     f"{total_orders:,} unique orders contained about {total_units:,} items. "
                     f"The top products by units were {_fmt_products(product_units)}. "
                     f"Approximate merchandise revenue from quantity multiplied by product price "
-                    f"was $\${revenue:,.2f}."
+                    f"was USD {revenue:,.2f}."
                 ),
                 "processed_date": processed,
             }
@@ -95,7 +95,7 @@ def build_context_chunks(frame: pd.DataFrame, processed_date: str | date) -> pd.
                     f"Greenery product summary for {product}, covering {min_month} to {max_month}: "
                     f"{total_units:,} units were included in {total_orders:,} unique orders. "
                     f"The leading states by units were {_fmt_states(state_units)}. "
-                    f"Approximate merchandise revenue from this product was $\${revenue:,.2f}."
+                    f"Approximate merchandise revenue from this product was USD {revenue:,.2f}."
                 ),
                 "processed_date": processed,
             }
@@ -118,7 +118,7 @@ def build_context_chunks(frame: pd.DataFrame, processed_date: str | date) -> pd.
                     f"{total_orders:,} unique orders contained about {total_units:,} items. "
                     f"Top products by units were {_fmt_products(product_units)}. "
                     f"Top states by units were {_fmt_states(state_units)}. "
-                    f"Approximate merchandise revenue was $\${revenue:,.2f}."
+                    f"Approximate merchandise revenue was USD {revenue:,.2f}."
                 ),
                 "processed_date": processed,
             }
