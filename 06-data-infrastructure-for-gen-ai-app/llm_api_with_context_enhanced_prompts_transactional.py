@@ -1,25 +1,7 @@
-import os
-
-from google import genai
-from google.genai import types
+from week6_common import ask_gemini, get_genai_client
 
 
-# GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
-
-
-def ask_gemini(client, model: str = "gemini-2.0-flash-001", prompt: str = ""):
-    response = client.models.generate_content(
-        model=model,
-        contents=prompt,
-    )
-    return response.text
-
-
-# Set up a Gemini client
-client = genai.Client(api_key=GEMINI_API_KEY)
-
-context = """
+CONTEXT = """
 {
   "user_id": "12345",
   "current_account_balance": 850.25,
@@ -55,20 +37,24 @@ context = """
 }
 """
 
-question = """
-Based on the user's recent activity, what budget advice would you give them for the next 2 weeks?
-Also, remind them of any upcoming bills."
-"""
 
-prompt_with_context = f"""
+def main():
+    client = get_genai_client()
+    question = """
+Based on the user's recent activity, what budget advice would you give them for the next 2 weeks?
+Also, remind them of any upcoming bills.
+"""
+    prompt_with_context = f"""
 You are a helpful assistant. Use the following context to answer the question.
 
 Context:
-{context}
+{CONTEXT}
 
 Question:
 {question}
 """
-response = ask_gemini(client, prompt=prompt_with_context)
+    print(ask_gemini(client, prompt=prompt_with_context))
 
-print(response)
+
+if __name__ == "__main__":
+    main()
