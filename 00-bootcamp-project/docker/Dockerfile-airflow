@@ -30,8 +30,9 @@ USER airflow
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH=/home/airflow/.local/bin:${PATH}
 
-# Day 4 only needs Airflow + Spark. Do not install the Week 5 dbt/cosmos stack
-# here: its storage pins conflict with the Airflow 3.3.0 base image.
+# Keep the Day 4 Spark stack and add only the Week 6 GenAI/BigQuery packages.
+# Do not install the Week 5 dbt/cosmos stack here: its storage pins conflict
+# with the Airflow 3.3.0 base image.
 RUN python -m pip install --no-cache-dir \
       pyspark==4.1.0 \
       pyspark-client==4.1.0 \
