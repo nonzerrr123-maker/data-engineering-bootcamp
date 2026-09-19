@@ -36,12 +36,16 @@ RUN python -m pip install --no-cache-dir \
       pyspark==4.1.0 \
       pyspark-client==4.1.0 \
       apache-airflow-providers-apache-spark==6.2.0 \
+      google-genai==1.25.0 \
+      pandas-gbq==0.29.2 \
+      pyarrow==18.1.0 \
     && python -m pip check
 
 # Fail the image build immediately if PySpark or the Spark provider is broken.
 RUN python -c "import pyspark; assert pyspark.__version__ == '4.1.0'; print('PySpark', pyspark.__version__, 'OK')" \
     && python -c "from pyspark.core.status import StatusTracker, SparkJobInfo, SparkStageInfo; print('PySpark status API OK')" \
-    && python -c "from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator; print('Spark provider OK')"
+    && python -c "from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator; print('Spark provider OK')" \
+    && python -c "from google import genai; import pandas_gbq, pyarrow; print('Week 6 GenAI/BigQuery dependencies OK')"
 
 COPY --chown=airflow:0 ./conf/spark-defaults.conf /home/airflow/.local/lib/python3.10/site-packages/pyspark/conf/spark-defaults.conf
 COPY --chown=airflow:0 ./conf/metrics.properties /home/airflow/.local/lib/python3.10/site-packages/pyspark/conf/metrics.properties
