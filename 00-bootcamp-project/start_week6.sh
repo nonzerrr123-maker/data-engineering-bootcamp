@@ -19,10 +19,14 @@ if ! grep -q '^FERNET_KEY=.' .env; then
   fi
 fi
 
-# If the current shell already has a Gemini key, persist it only in the local
-# ignored .env file. Never print the secret and never commit .env.
-if [[ -n "${GEMINI_API_KEY:-}" ]] && ! grep -q '^GEMINI_API_KEY=.' .env; then
-  printf 'GEMINI_API_KEY=%s\n' "$GEMINI_API_KEY" >> .env
+# If the current shell has a Gemini key, sync it into the local ignored .env.
+# This intentionally replaces an older/depleted key without ever printing it.
+if [[ -n "${GEMINI_API_KEY:-}" ]]; then
+  if grep -q '^GEMINI_API_KEY=' .env; then
+    sed -i "s|^GEMINI_API_KEY=.*|GEMINI_API_KEY=${GEMINI_API_KEY}|" .env
+  else
+    printf 'GEMINI_API_KEY=%s\n' "$GEMINI_API_KEY" >> .env
+  fi
 fi
 
 if ! grep -q '^GEMINI_API_KEY=.' .env; then
