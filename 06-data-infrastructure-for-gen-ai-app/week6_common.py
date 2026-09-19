@@ -14,7 +14,7 @@ GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "project-b9bafacf-46f9-43ef-bcc")
 DATASET_ID = os.getenv("BIGQUERY_DATASET_ID", "deb_bootcamp")
 SAMPLE_TABLE_ID = os.getenv("WEEK6_SAMPLE_TABLE_ID", "my_embeddings")
 COURSE_TABLE_ID = os.getenv("WEEK6_COURSE_TABLE_ID", "course_embeddings")
-GENERATION_MODEL = os.getenv("GEMINI_GENERATION_MODEL", "gemini-3.1-flash-lite")
+GENERATION_MODEL = os.getenv("GEMINI_GENERATION_MODEL", "gemini-2.5-flash-lite")
 EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 DEFAULT_KEYFILE = (
     REPO_ROOT
