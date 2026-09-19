@@ -1,59 +1,49 @@
-import json
-import os
-
-from google import genai
-from google.cloud import bigquery
-from google.oauth2 import service_account
-
-
-GCP_PROJECT_ID = "YOUR_GCP_PROJECT_ID"
-DATASET_ID = "YOUR_DATASET_ID"
-TABLE_ID = "YOUR_TABLE_ID"
-KEYFILE = "YOUR_KEYFILE"
-# api_key = os.environ.get("GEMINI_API_KEY")
-GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
-
-
-def get_embedding(client, model: str = "gemini-embedding-exp-03-07", text: str = ""):
-    result = client.models.embed_content(
-        model=model,
-        contents=text,
-    )
-    return result.embeddings[0]
-
-
-service_account_info = json.load(open(KEYFILE))
-credentials = service_account.Credentials.from_service_account_info(service_account_info)
-bigquery_client = bigquery.Client(
-    project=GCP_PROJECT_ID,
-    credentials=credentials,
+from week6_common import (
+    DATASET_ID,
+    GCP_PROJECT_ID,
+    SAMPLE_TABLE_ID,
+    get_bigquery_client,
+    get_embedding,
+    get_genai_client,
 )
 
-# Set up a Gemini client
-genai_client = genai.Client(api_key=GEMINI_API_KEY)
-vec = get_embedding(genai_client, text="QR codes systems for COVID-19.\nSimple tools for bars, restaurants, offices, and other small proximity businesses.").values
 
-query = f"""
-    SELECT
-        base.text,
-        distance
-    FROM
-    VECTOR_SEARCH(
-        TABLE `{DATASET_ID}.{TABLE_ID}`,
-        'embedding',
-        (select {vec} as embedding),
-        top_k => 3,
-        distance_type => 'EUCLIDEAN'
+def build_vector_search_query(vec, table_id=SAMPLE_TABLE_ID, top_k=3):
+    return f"""
+        SELECT
+            base.text,
+            distance
+        FROM
+        VECTOR_SEARCH(
+            TABLE \`{GCP_PROJECT_ID}.{DATASET_ID}.{table_id}\`,
+            'embedding',
+            (SELECT {vec} AS embedding),
+            top_k => {int(top_k)},
+            distance_type => 'EUCLIDEAN'
+        )
+    """
+
+
+def search_similar_texts(bigquery_client, vec, table_id=SAMPLE_TABLE_ID, top_k=3):
+    query_job = bigquery_client.query(
+        build_vector_search_query(vec, table_id=table_id, top_k=top_k)
     )
-"""
+    return list(query_job.result())
 
-# Run the query
-query_job = bigquery_client.query(query)
 
-# Get the results
-results = query_job.result()
+def main():
+    genai_client = get_genai_client()
+    bigquery_client = get_bigquery_client()
 
-# Print the results
-for row in results:
-    print(row.text)
-    print(row.distance)
+    query_text = (
+        "QR codes systems for COVID-19.\n"
+        "Simple tools for bars, restaurants, offices, and other small proximity businesses."
+    )
+    vec = get_embedding(genai_client, query_text).values
+    for row in search_similar_texts(bigquery_client, vec):
+        print(row.text)
+        print("distance:", row.distance)
+
+
+if __name__ == "__main__":
+    main()
