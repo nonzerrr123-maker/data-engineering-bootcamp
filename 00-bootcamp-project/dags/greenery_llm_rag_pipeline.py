@@ -23,7 +23,7 @@ KEYFILE = os.getenv(
     "/opt/spark/pyspark/project-b9bafacf-46f9-43ef-bcc-6ca8073c5513.json",
 )
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
+EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-2")
 DAGS_FOLDER = Path("/opt/airflow/dags")
 RAW_CONTEXT_FILE = DAGS_FOLDER / "greenery-summary-data.parquet"
 EMBEDDED_CONTEXT_FILE = DAGS_FOLDER / "greenery-summary-data-with-embeddings.parquet"
