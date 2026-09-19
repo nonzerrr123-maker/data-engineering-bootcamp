@@ -25,7 +25,7 @@ KEYFILE = Path(
 )
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GENERATION_MODEL = os.getenv("GEMINI_GENERATION_MODEL", "gemini-2.5-flash-lite")
-EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
+EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-2")
 
 SYSTEM_INSTRUCTION = [
     "You are a data analyst who works for the Greenery company.",
