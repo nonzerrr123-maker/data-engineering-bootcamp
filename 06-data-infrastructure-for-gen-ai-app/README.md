@@ -29,7 +29,7 @@ The code uses these defaults for this bootcamp environment:
 - BigQuery dataset: `deb_bootcamp`
 - Sample embedding table: `my_embeddings`
 - Course RAG table: `course_embeddings`
-- Generation model: `gemini-3.1-flash-lite`
+- Generation model: `gemini-2.5-flash-lite`
 - Embedding model: `gemini-embedding-001`
 
 The service-account JSON remains local under
