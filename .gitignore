@@ -194,3 +194,8 @@ data/
 
 # DEB dataengineercafe keyfiles
 dataengineercafe-*.json
+
+
+# Week 6 generated RAG artifacts
+00-bootcamp-project/dags/greenery-summary-data.parquet
+00-bootcamp-project/dags/greenery-summary-data-with-embeddings.parquet

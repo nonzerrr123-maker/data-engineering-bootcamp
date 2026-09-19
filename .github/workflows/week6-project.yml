@@ -1,0 +1,105 @@
+name: Week 6 Bootcamp Project
+
+on:
+  pull_request:
+    paths:
+      - "00-bootcamp-project/dags/greenery_llm_rag_pipeline.py"
+      - "00-bootcamp-project/dags/greenery_rag_utils.py"
+      - "00-bootcamp-project/qna_app/**"
+      - "00-bootcamp-project/start_week6_project.sh"
+      - "00-bootcamp-project/tests/test_week6_project.py"
+      - "00-bootcamp-project/docker/Dockerfile-airflow"
+      - ".github/workflows/week6-project.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "00-bootcamp-project/dags/greenery_llm_rag_pipeline.py"
+      - "00-bootcamp-project/dags/greenery_rag_utils.py"
+      - "00-bootcamp-project/qna_app/**"
+      - "00-bootcamp-project/start_week6_project.sh"
+      - "00-bootcamp-project/tests/test_week6_project.py"
+      - "00-bootcamp-project/docker/Dockerfile-airflow"
+      - ".github/workflows/week6-project.yml"
+
+jobs:
+  project-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pandas pytest
+
+      - name: Compile project Python
+        run: |
+          python -m py_compile \
+            00-bootcamp-project/dags/greenery_rag_utils.py \
+            00-bootcamp-project/dags/greenery_llm_rag_pipeline.py \
+            00-bootcamp-project/qna_app/app.py
+
+      - name: Run project tests
+        run: pytest -q 00-bootcamp-project/tests/test_week6_project.py
+
+  qna-environment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: python -m pip install "poetry==2.4.2"
+
+      - name: Install Greenery Q&A dependencies
+        working-directory: 00-bootcamp-project/qna_app
+        run: |
+          poetry install --no-interaction
+          poetry run python -c "import streamlit; from google import genai; from google.cloud import bigquery; import app; print('Greenery Q&A environment OK')"
+
+  airflow-project:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Airflow image
+        run: |
+          docker build \
+            -f 00-bootcamp-project/docker/Dockerfile-airflow \
+            -t deb-week6-project-airflow \
+            00-bootcamp-project/docker
+
+      - name: Validate Greenery RAG DAG graph
+        run: |
+          docker run --rm \
+            -e GEMINI_API_KEY=dummy-ci-key \
+            -e PYTHONPATH=/opt/airflow/dags \
+            -v "$PWD/00-bootcamp-project/dags:/opt/airflow/dags:ro" \
+            deb-week6-project-airflow \
+            python - <<'PY'
+          import importlib.util
+
+          path = "/opt/airflow/dags/greenery_llm_rag_pipeline.py"
+          spec = importlib.util.spec_from_file_location("greenery_rag_dag", path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          dag = module.dag
+          assert dag.dag_id == "greenery_llm_rag_pipeline"
+          assert set(dag.task_ids) == {
+              "gather_data",
+              "get_embeddings",
+              "load_data_to_bigquery",
+          }
+          assert dag.get_task("get_embeddings").upstream_task_ids == {"gather_data"}
+          assert dag.get_task("load_data_to_bigquery").upstream_task_ids == {"get_embeddings"}
+          print("Greenery Week 6 RAG DAG graph OK")
+          PY
