@@ -44,6 +44,13 @@ if [[ ! -f "$KEYFILE" ]]; then
   exit 2
 fi
 
+ROOT="$(cd .. && pwd)"
+WEEK5_DIR="$ROOT/05-analytics-engineering/scheduling-dbt"
+if [[ -f "$WEEK5_DIR/docker-compose.yml" ]]; then
+  echo 'Stopping Week 5 Airflow to free host port 8080...'
+  (cd "$WEEK5_DIR" && docker compose down >/dev/null 2>&1 || true)
+fi
+
 echo 'Resetting local Airflow metadata so the Week 6 DAG is loaded cleanly...'
 docker compose down -v --remove-orphans
 
