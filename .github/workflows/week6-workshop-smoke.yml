@@ -35,7 +35,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install \
-            "google-genai==1.25.0" \
+            "google-genai==1.66.0" \
             "google-cloud-bigquery>=3.34.0,<4.0.0" \
             "pandas-gbq==0.29.2" \
             pandas \
