@@ -199,3 +199,6 @@ dataengineercafe-*.json
 # Week 6 generated RAG artifacts
 00-bootcamp-project/dags/greenery-summary-data.parquet
 00-bootcamp-project/dags/greenery-summary-data-with-embeddings.parquet
+
+# Local GCP service-account keyfiles
+project-b9bafacf-46f9-43ef-bcc-*.json
