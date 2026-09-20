@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: stg_greenery__users
+    description: Clean staging model for Greenery users.
+    columns:
+      - name: user_guid
+        description: User GUID
+        data_tests:
+          - not_null
+          - unique
+      - name: email
+        description: User email after basic validity filtering.
+
+  - name: stg_greenery__events
+    description: Clean staging model for Greenery events.
+    columns:
+      - name: event_guid
+        description: Event GUID
+        data_tests:
+          - not_null
+          - unique
+          - dbt_expectations.expect_column_to_exist
+          - dbt_expectations.expect_column_values_to_be_unique
+      - name: event_type
+        description: Event type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['page_view', 'add_to_cart', 'checkout', 'package_shipped']
+          - dbt_expectations.expect_column_values_to_be_of_type:
+              arguments:
+                column_type: string
+
+  - name: stg_greenery__orders
+    description: Clean staging model for Greenery orders.
+    columns:
+      - name: order_guid
+        data_tests: [not_null, unique]
+      - name: user_guid
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_greenery__users')
+                field: user_guid
+
+  - name: stg_greenery__addresses
+    description: Clean staging model for Greenery addresses.
+    columns:
+      - name: address_guid
+        data_tests: [not_null, unique]
+
+  - name: stg_greenery__products
+    description: Clean staging model for Greenery products.
+    columns:
+      - name: product_guid
+        data_tests: [not_null, unique]
+
+  - name: stg_greenery__order_items
+    description: Clean staging model for Greenery order items.
+
+  - name: stg_greenery__promos
+    description: Clean staging model for Greenery promotions.

@@ -1,0 +1,73 @@
+name: Week 5 Day 5 Project CI
+
+on:
+  pull_request:
+    paths:
+      - '05-analytics-engineering/week5-project/**'
+      - 'dataset/greenery/**'
+      - '.github/workflows/week5-project-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - '05-analytics-engineering/week5-project/**'
+      - 'dataset/greenery/**'
+      - '.github/workflows/week5-project-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  model-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Execute Day 5 models against Greenery fixtures
+        run: python 05-analytics-engineering/week5-project/tools/verify_project.py
+
+  dbt-graph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DBT_SEND_ANONYMOUS_USAGE_STATS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dbt BigQuery
+        run: pip install 'dbt-core==1.12.0' 'dbt-bigquery==1.12.0'
+
+      - name: Create non-secret CI profile
+        run: |
+          mkdir -p /tmp/week5-dbt
+          cat > /tmp/week5-dbt/profiles.yml <<'YAML'
+          greenery:
+            target: ci
+            outputs:
+              ci:
+                type: bigquery
+                method: oauth
+                project: week5-ci-project
+                dataset: week5_ci
+                threads: 1
+                location: US
+          YAML
+
+      - name: Resolve dbt packages
+        working-directory: 05-analytics-engineering/week5-project
+        run: dbt deps --profiles-dir /tmp/week5-dbt
+
+      - name: Parse dbt project
+        working-directory: 05-analytics-engineering/week5-project
+        run: dbt parse --profiles-dir /tmp/week5-dbt
+
+      - name: Compile dbt graph without warehouse introspection
+        working-directory: 05-analytics-engineering/week5-project
+        run: dbt compile --no-introspect --profiles-dir /tmp/week5-dbt
